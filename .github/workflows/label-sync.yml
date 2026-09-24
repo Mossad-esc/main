@@ -1,0 +1,50 @@
+name: Label sync
+
+# Keeps repository labels in sync with .github/labels.yml.
+# Runs on every push to main that touches either the labels definition or
+# this workflow, and on workflow_dispatch so maintainers can resync manually.
+#
+# Privacy / security notes:
+#   - No secrets are read; GITHUB_TOKEN requires labels:write only.
+#   - Deletes labels that exist in the repo but not in labels.yml so the
+#     taxonomy stays canonical.  The "delete_missing: true" behaviour is
+#     intentional and documented here so reviewers can assess the blast radius.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/labels.yml"
+      - ".github/workflows/label-sync.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write   # labels:write lives under the issues permission scope
+
+concurrency:
+  group: label-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Sync labels from .github/labels.yml
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate label config before syncing
+        run: |
+          python3 devx/label_config.py --check .github/labels.yml
+
+      - name: Sync labels
+        uses: EndBug/label-sync@v2
+        with:
+          config-file: .github/labels.yml
+          # Remove labels from the repo that are absent from labels.yml.
+          # This enforces a single canonical label taxonomy.
+          delete_missing: true
+          token: ${{ secrets.GITHUB_TOKEN }}
