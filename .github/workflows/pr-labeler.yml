@@ -4,7 +4,11 @@ name: PR labeler
 # on the files they modify, using the path mappings in .github/labeler.yml.
 #
 # Privacy / security notes:
-#   - Read-only checkout; GITHUB_TOKEN requires pull-requests:write only.
+#   - Uses pull_request_target so the workflow runs with write permissions even
+#     when the PR originates from a fork.  The checkout step uses the base ref
+#     (not the head/fork ref), so untrusted code from the fork is never
+#     executed in this workflow.
+#   - GITHUB_TOKEN requires pull-requests:write only.
 #   - No media, secrets, witnesses, or private keys are accessed.
 #   - The labeler action only reads changed file paths, not file contents.
 #
@@ -12,7 +16,7 @@ name: PR labeler
 # be removed manually or by the label-sync workflow if labels.yml is edited.
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -30,8 +34,15 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Check out repository
+      - name: Check out base repository
+        # Checkout the base ref (main), NOT the fork head, so we never execute
+        # untrusted code from a contributor's fork in this privileged context.
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Install Python dependencies for validator
+        run: pip install --quiet pyyaml
 
       - name: Validate label and labeler configs
         # Catches drift between labeler.yml and labels.yml before applying

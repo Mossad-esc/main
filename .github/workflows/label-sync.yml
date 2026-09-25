@@ -6,9 +6,10 @@ name: Label sync
 #
 # Privacy / security notes:
 #   - No secrets are read; GITHUB_TOKEN requires labels:write only.
-#   - Deletes labels that exist in the repo but not in labels.yml so the
-#     taxonomy stays canonical.  The "delete_missing: true" behaviour is
-#     intentional and documented here so reviewers can assess the blast radius.
+#   - delete_missing is disabled so that labels managed outside this file
+#     (e.g. bot-applied or GitHub-default labels) are not silently removed.
+#     To purge a label, delete it manually or temporarily set delete_missing:
+#     true on a targeted workflow_dispatch run.
 
 on:
   push:
@@ -44,7 +45,9 @@ jobs:
         uses: EndBug/label-sync@v2
         with:
           config-file: .github/labels.yml
-          # Remove labels from the repo that are absent from labels.yml.
-          # This enforces a single canonical label taxonomy.
-          delete_missing: true
+          # delete_missing is intentionally false: labels not present in
+          # labels.yml (e.g. GitHub defaults, bot labels) are left untouched.
+          # Flip to true on a manual workflow_dispatch run only when a
+          # deliberate purge is needed.
+          delete_missing: false
           token: ${{ secrets.GITHUB_TOKEN }}
